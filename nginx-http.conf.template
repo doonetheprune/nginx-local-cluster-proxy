@@ -1,0 +1,41 @@
+server {
+    listen ${PORTS};
+    server_name _;
+
+    error_page 404 500 502 503 504 @custom_error;
+    proxy_intercept_errors on;
+
+    set $original_uri $request_uri;
+
+    # Custom error handling location
+    location @custom_error {
+        internal;
+        # You can use more variables here to make the error message more informative
+        return 200 '{"status": "$status", "message": "Error occurred", "inbound_url": "$original_uri", "attempted_url": "$attempted_url", "proxy": "internal-cluster-proxy"}';
+        add_header Content-Type application/json;
+    }
+
+
+#DYNAMIC_LOCATIONS#
+
+    location ~ ^/([^/]+)(/.*)?$ {
+        # Capture the first segment of the path and store it in a variable
+        set $upstream_service $1;
+        set $upstream_uri $2;  # Capture the rest of the URI
+
+        set $complete_upstream_uri http://$upstream_service:${UPSTREAM_PORT}/$upstream_service$upstream_uri$is_args$args;
+
+        set $attempted_url $complete_upstream_uri;
+
+        # Proxy pass to a dynamic URL that uses the captured segments
+        proxy_pass $complete_upstream_uri;
+
+        # Standard proxy headers
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        error_page 404 500 502 503 504 @custom_error;
+    }
+}
