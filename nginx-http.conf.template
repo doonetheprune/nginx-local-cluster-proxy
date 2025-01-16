@@ -5,11 +5,6 @@ server {
     error_page 502 503 504 @custom_error;
     proxy_intercept_errors on;
 
-    client_max_body_size 100M;
-
-    client_body_timeout 120s;
-    client_header_timeout 120s;
-
     set $original_uri $request_uri;
 
     # Custom error handling location
